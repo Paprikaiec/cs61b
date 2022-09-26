@@ -2,9 +2,12 @@
  *  @author YOUR NAME HERE
  */
 public class LeapYear {
+    public static boolean isLeapYear(int year){
+        return (year % 400 == 0) || (year % 4 == 0) && (year % 100 != 0);
+    }
 
     /** Calls isLeapYear to print correct statement.
-     *  @param  year to be analyzed
+     *  @param  year 2000
      */
     private static void checkLeapYear(int year) {
         if (isLeapYear(year)) {
