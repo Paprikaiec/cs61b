@@ -1,7 +1,50 @@
 package deque;
 
-public class LinkedListDeque<T> {
-    public class ListNode {
+import java.util.Deque;
+import java.util.Iterator;
+import java.util.LinkedList;
+
+public class LinkedListDeque<T> implements Iterable<T>, deque.Deque<T> {
+    public Iterator<T> iterator() {
+        return new LinkedListDequeIterator();
+    }
+
+    private class LinkedListDequeIterator implements Iterator<T> {
+        private ListNode wizNode;
+
+        public LinkedListDequeIterator() {
+            wizNode = sentinel;
+        }
+
+        public boolean hasNext() {
+            return wizNode.next != sentinel;
+        }
+
+        public T next() {
+            T item = wizNode.next.item;
+            wizNode = wizNode.next;
+            return item;
+        }
+    }
+
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null) return false;
+
+        if (!(o instanceof Deque)) return false;
+
+        LinkedListDeque<T> list_o = (LinkedListDeque<T>) o;
+        if (list_o.size() != this.size()) return false;
+
+        LinkedListDequeIterator thisIterator = new LinkedListDequeIterator();
+        for (T item : list_o) {
+            if (thisIterator.next() != item) return false;
+        }
+
+        return true;
+    }
+
+    private class ListNode {
         public ListNode prev;
         public T item;
         public ListNode next;
@@ -43,10 +86,6 @@ public class LinkedListDeque<T> {
         size += 1;
     }
 
-    public boolean isEmpty() {
-        return size == 0;
-    }
-
     public int size() {
         return size;
     }
@@ -81,14 +120,14 @@ public class LinkedListDeque<T> {
     }
 
     public T get(int index) {
-        if (index >= size) return null;
+        if ((index >= size) || (index < 0)) return null;
         ListNode node = sentinel;
         for (int i = 0; i <= index; i++) node = node.next;
         return node.item;
     }
 
     public T getRecursive(int index) {
-        if (index >= size) return null;
+        if ((index >= size) || (index < 0)) return null;
         return getRecursive(sentinel.next, index);
     }
 
