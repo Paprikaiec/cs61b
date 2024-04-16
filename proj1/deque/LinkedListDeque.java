@@ -1,8 +1,6 @@
 package deque;
 
-import java.util.Deque;
 import java.util.Iterator;
-import java.util.LinkedList;
 
 public class LinkedListDeque<T> implements Iterable<T>, deque.Deque<T> {
     public Iterator<T> iterator() {
@@ -12,7 +10,7 @@ public class LinkedListDeque<T> implements Iterable<T>, deque.Deque<T> {
     private class LinkedListDequeIterator implements Iterator<T> {
         private ListNode wizNode;
 
-        public LinkedListDequeIterator() {
+        LinkedListDequeIterator() {
             wizNode = sentinel;
         }
 
@@ -28,34 +26,42 @@ public class LinkedListDeque<T> implements Iterable<T>, deque.Deque<T> {
     }
 
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-
-        if (!(o instanceof Deque)) return false;
-
-        LinkedListDeque<T> list_o = (LinkedListDeque<T>) o;
-        if (list_o.size() != this.size()) return false;
-
-        LinkedListDequeIterator thisIterator = new LinkedListDequeIterator();
-        for (T item : list_o) {
-            if (thisIterator.next() != item) return false;
+        if (this == o) {
+            return true;
         }
 
+        if (o == null) {
+            return false;
+        }
+
+        if (!(o instanceof deque.Deque)) {
+            return false;
+        }
+
+        Deque<T> other = (Deque<T>) o;
+        if (other.size() != this.size()) {
+            return false;
+        }
+        for (int i = 0; i < size; i++) {
+            if (!(other.get(i).equals(this.get(i)))) {
+                return false;
+            }
+        }
         return true;
     }
 
     private class ListNode {
-        public ListNode prev;
-        public T item;
-        public ListNode next;
+        private ListNode prev;
+        private T item;
+        private ListNode next;
 
-        public ListNode() {
+        ListNode() {
             prev = null;
             item = null;
             next = null;
         }
 
-        public ListNode(ListNode p, T x, ListNode n) {
+        ListNode(ListNode p, T x, ListNode n) {
             prev = p;
             item = x;
             next = n;
@@ -92,7 +98,7 @@ public class LinkedListDeque<T> implements Iterable<T>, deque.Deque<T> {
 
     public void printDeque() {
         ListNode node = sentinel.next;
-        while(node != sentinel) {
+        while (node != sentinel) {
             System.out.print(node.item.toString() + ' ');
             node = node.next;
         }
@@ -100,7 +106,9 @@ public class LinkedListDeque<T> implements Iterable<T>, deque.Deque<T> {
     }
 
     public T removeFirst() {
-        if (size == 0) return null;
+        if (size == 0) {
+            return null;
+        }
 
         T item = sentinel.next.item;
         sentinel.next.next.prev = sentinel;
@@ -110,7 +118,9 @@ public class LinkedListDeque<T> implements Iterable<T>, deque.Deque<T> {
     }
 
     public T removeLast() {
-        if (size == 0) return null;
+        if (size == 0) {
+            return null;
+        }
 
         T item = sentinel.prev.item;
         sentinel.prev.prev.next = sentinel;
@@ -120,19 +130,27 @@ public class LinkedListDeque<T> implements Iterable<T>, deque.Deque<T> {
     }
 
     public T get(int index) {
-        if ((index >= size) || (index < 0)) return null;
+        if ((index >= size) || (index < 0)) {
+            return null;
+        }
         ListNode node = sentinel;
-        for (int i = 0; i <= index; i++) node = node.next;
+        for (int i = 0; i <= index; i++) {
+            node = node.next;
+        }
         return node.item;
     }
 
     public T getRecursive(int index) {
-        if ((index >= size) || (index < 0)) return null;
+        if ((index >= size) || (index < 0)) {
+            return null;
+        }
         return getRecursive(sentinel.next, index);
     }
 
     private T getRecursive(ListNode node, int index) {
-        if (index == 0) return node.item;
+        if (index == 0) {
+            return node.item;
+        }
         return getRecursive(node.next, index - 1);
     }
 

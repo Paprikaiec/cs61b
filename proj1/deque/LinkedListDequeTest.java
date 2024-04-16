@@ -126,7 +126,30 @@ public class LinkedListDequeTest {
         for (double i = 999999; i > 500000; i--) {
             assertEquals("Should have the same value", i, (double) lld1.removeLast(), 0.0);
         }
+    }
+    @Test
+    public void testEqual() {
+        LinkedListDeque<String> l1 = new LinkedListDeque<>();
+        ArrayDeque<String> a1 = new ArrayDeque<>();
+        l1.addFirst("cat");
+        l1.addFirst("dog");
+        l1.addFirst("rabbit");
+        l1.addFirst("bird");
+        l1.addFirst("magpie");
 
+        a1.addFirst("cat");
+        a1.addFirst("dog");
+        a1.addFirst("rabbit");
+        a1.addFirst("bird");
+        a1.addFirst("magpie");
 
+        ArrayDeque<Integer> a2 = new ArrayDeque<>();
+
+        for (int i = 0; i < 5; i++) {
+            a2.addFirst(i);
+        }
+
+        assertTrue(l1.equals(a1));
+        assertFalse(l1.equals(a2));
     }
 }
