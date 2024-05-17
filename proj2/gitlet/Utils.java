@@ -224,6 +224,13 @@ class Utils {
 
     /* MESSAGES AND ERROR REPORTING */
 
+    public static void exitWithError(String message) {
+        if (message != null && !message.equals("")) {
+            System.out.println(message);
+        }
+        System.exit(0);
+    }
+
     /** Return a GitletException whose message is composed from MSG and ARGS as
      *  for the String.format method. */
     static GitletException error(String msg, Object... args) {
