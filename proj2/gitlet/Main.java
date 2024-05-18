@@ -29,7 +29,9 @@ public class Main {
                 validateNumArgs(args, 2);
                 gitletAdd(args[1]);
                 break;
-            // TODO: FILL THE REST IN
+            case "commit":
+                validateNumArgs(args, 2);
+                gitletCommit(args[1]);
             default:
                 exitWithError("No command with that name exists.");
         }

@@ -22,15 +22,15 @@ public class Commit {
      */
 
     /** The date of this Commit. */
-    private Date timestamp;
+    public Date timestamp;
     /** The message of this Commit. */
-    private String message;
-    /** The consisting blobs<file name, blob reference > of this Commit. */
-    private HashMap<String, String> blobs;
+    public String message;
+    /** The consisting blobs<file name, blob hash> of this Commit. */
+    public HashMap<String, String> blobs;
     /** The parent reference of this Commit. */
-    private String parent;
+    public String parent;
     /** The second parent(for merge) reference of this Commit. */
-    private String secondParent;
+    public String secondParent;
     /* TODO: fill in the rest of this class. */
 
     public Commit(Date timestamp, String message, HashMap<String, String> blobs, String parent, String secondParent) {
