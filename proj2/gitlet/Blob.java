@@ -6,17 +6,17 @@ import java.io.File;
 import static gitlet.Utils.*;
 
 public class Blob implements Serializable {
-    public String fileName;
-    public byte[] content;
+    public final String fileName;
+    public final byte[] content;
 
     public Blob(String fileName, byte[] content) {
         this.fileName = fileName;
         this.content = content;
     }
 
-    /** Save this blob object to the given savePath, and return the sha1 code. */
+    /** Save this blob object(if not exists) to the given savePath, and return the blob hash. */
     public String saveBlob(File savePath) {
-        String ref = sha1(this);
+        String ref = sha1Hash(this);
 
         File saveFile = join(savePath, ref);
         if (!saveFile.exists()) {
@@ -25,8 +25,8 @@ public class Blob implements Serializable {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
+            writeObject(saveFile, this);
         }
-        writeObject(saveFile, this);
 
         return ref;
     }

@@ -32,6 +32,27 @@ public class Main {
             case "commit":
                 validateNumArgs(args, 2);
                 gitletCommit(args[1]);
+                break;
+            case "rm":
+                validateNumArgs(args, 2);
+                gitletRm(args[1]);
+                break;
+            case "log" :
+                validateNumArgs(args, 1);
+                gitletLog();
+                break;
+            case "global-log":
+                validateNumArgs(args, 1);
+                gitletGlobalLog();
+                break;
+            case "find":
+                validateNumArgs(args, 2);
+                gitletFind(args[1]);
+                break;
+            case "status":
+                validateNumArgs(args, 1);
+                gitletStatus();
+                break;
             default:
                 exitWithError("No command with that name exists.");
         }

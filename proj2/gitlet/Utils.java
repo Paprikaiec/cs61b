@@ -33,6 +33,9 @@ class Utils {
 
     /* SHA-1 HASH VALUES. */
 
+    static String sha1Hash(Serializable obj) {
+        return sha1(serialize(obj));
+    }
     /** Returns the SHA-1 hash of the concatenation of VALS, which may
      *  be any mixture of byte arrays and Strings. */
     static String sha1(Object... vals) {
@@ -186,6 +189,10 @@ class Utils {
      *  not denote a directory. */
     static List<String> plainFilenamesIn(String dir) {
         return plainFilenamesIn(new File(dir));
+    }
+
+    static boolean dirContainsFile(File dir, String fileName) {
+        return plainFilenamesIn(dir).contains(fileName);
     }
 
     /* OTHER FILE UTILITIES */
