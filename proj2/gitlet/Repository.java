@@ -31,9 +31,10 @@ public class Repository {
     /** The commits file. */
     public static final File COMMITS_FILE = join(GITLET_DIR, "commits");
     /** The current head pointer file(store branch name). */
-    public static final File HEAD_FILE = join(GITLET_DIR, "head");
+    public static final File CURRENTBRANCH_FILE = join(GITLET_DIR, "currentBranch");
     /** The branches file(store hash map for branch pointer name and reference). */
     public static final File BRANCHES_FILE = join(GITLET_DIR, "branches");
+    public static final File CURRENTCOMMITHASH_FILE = join(GITLET_DIR, "CurrentCommitHash");
     /** The blobs directory. */
     public static final File BLOBS_DIR = join(GITLET_DIR, "blobs");
     /** The staging file for addition references map(store hash map for staging blobs) */
@@ -42,19 +43,19 @@ public class Repository {
     public static final File RMSET_FILE = join(GITLET_DIR, "rmSet");
 
     /** The hash map of commits<commit hash, commit>(need prepareRef() to create). */
-    public static HashMap<String, Commit> commits;
+    private static HashMap<String, Commit> commits;
     /** The hash map of branches<branch name, commit hash>(need prepareRef() to create). */
-    public static HashMap<String, String> branches;
+    private static HashMap<String, String> branches;
     /** The current branch name(need prepareRef() to create). */
-    public static String head;
+    private static String currentBranch;
     /** The current commit hash(need prepareRef() to create). */
-    public static String currentCommitHash;
+    private static String currentCommitHash;
     /** The current commit object(need prepareRef() to create). */
-    public static Commit currentCommit;
+    private static Commit currentCommit;
     /** The hash map of Staging references and file for addition<file name, blob hash>(need prepareRef() to create). */
-    public static HashMap<String, String> addMap;
+    private static HashMap<String, String> addMap;
     /** The hash set of Staging file name for removal. */
-    public static HashSet<String> rmSet;
+    private static HashSet<String> rmSet;
     /* TODO: fill in the rest of this class. */
     private static void setupPersistence() {
         if (!GITLET_DIR.exists()) {
@@ -77,9 +78,17 @@ public class Repository {
             }
         }
 
-        if (!HEAD_FILE.exists()) {
+        if (!CURRENTBRANCH_FILE.exists()) {
             try {
-                HEAD_FILE.createNewFile();
+                CURRENTBRANCH_FILE.createNewFile();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        if (!CURRENTCOMMITHASH_FILE.exists()) {
+            try {
+                CURRENTCOMMITHASH_FILE.createNewFile();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -120,11 +129,12 @@ public class Repository {
         commits.put(iniHash, iniCommit);
 
         // Set new HEAD point to the initial commit.
-        head = "master";
+        currentBranch = "master";
+        currentCommitHash = iniHash;
 
         // Set new hash map to store branches reference name.
         branches = new HashMap<>();
-        branches.put(head, iniHash);
+        branches.put(currentBranch, currentCommitHash);
 
         // Set addMap file to store file for addition.
         addMap = new HashMap<>();
@@ -139,19 +149,19 @@ public class Repository {
     private static void loadRefs() {
         commits = readObject(COMMITS_FILE, HashMap.class);
         branches = readObject(BRANCHES_FILE, HashMap.class);
-        head = readContentsAsString(HEAD_FILE);
+        currentBranch = readContentsAsString(CURRENTBRANCH_FILE);
+        currentCommitHash = readContentsAsString(CURRENTCOMMITHASH_FILE);
+        currentCommit = commits.get(currentCommitHash);
         addMap = readObject(ADDMAP_FILE, HashMap.class);
         rmSet = readObject(RMSET_FILE, HashSet.class);
-        currentCommitHash = branches.get(head);
-        currentCommit = commits.get(currentCommitHash);
-
 
     }
 
     private static void saveRefs() {
         writeObject(COMMITS_FILE, commits);
         writeObject(BRANCHES_FILE, branches);
-        writeContents(HEAD_FILE, head);
+        writeContents(CURRENTBRANCH_FILE, currentBranch);
+        writeContents(CURRENTCOMMITHASH_FILE, currentCommitHash);
         writeObject(ADDMAP_FILE, addMap);
         writeObject(RMSET_FILE, rmSet);
     }
@@ -175,7 +185,7 @@ public class Repository {
             join(BLOBS_DIR, addMap.get(fileName)).delete();
         }
         // Read file and store blob.
-        Blob stagingBlob = new Blob(fileName, readContents(join(CWD, fileName)));
+        Blob stagingBlob = new Blob(fileName, join(CWD, fileName));
         String stagingRef = stagingBlob.saveBlob(BLOBS_DIR);
         // Set staging reference.
         addMap.put(fileName, stagingRef);
@@ -213,8 +223,9 @@ public class Repository {
         String commitHash = sha1Hash(commit);
         commits.put(commitHash, commit);
 
-        // Update branches.
-        branches.put(head, commitHash);
+        // Update branches and commit hash.
+        branches.put(currentBranch, commitHash);
+        currentCommitHash = commitHash;
 
         // Update addMap and rmSet(clear).
         addMap.clear();
@@ -310,6 +321,14 @@ public class Repository {
 
     }
 
+    private static void printStatusFiles(String title, TreeSet<String> Files) {
+        System.out.println(title);
+        for (String fileName : Files) {
+            System.out.println(fileName);
+        }
+        System.out.println();
+    }
+
     public static void gitletStatus() {
         if (!GITLET_DIR.exists()) {
             exitWithError("Not in an initialized Gitlet directory.");
@@ -320,7 +339,7 @@ public class Repository {
         System.out.println("=== Branches ===");
         TreeSet<String> branchesFiles = new TreeSet<>(branches.keySet());
         for (String name : branchesFiles) {
-            if (name.equals(head)) {
+            if (name.equals(currentBranch)) {
                 System.out.println("*" + name);
             } else {
                 System.out.println(name);
@@ -328,19 +347,11 @@ public class Repository {
         }
         System.out.println();
 
-        System.out.println("=== Staged Files ===");
         TreeSet<String> addFiles = new TreeSet<>(addMap.keySet());
-        for (String name : addFiles) {
-                System.out.println(name);
-        }
-        System.out.println();
+        printStatusFiles("=== Staged Files ===", addFiles);
 
-        System.out.println("=== Removed Files ===");
         TreeSet<String> rmFiles = new TreeSet<>(rmSet);
-        for (String name : rmFiles) {
-            System.out.println(name);
-        }
-        System.out.println();
+        printStatusFiles("=== Removed Files ===", rmFiles);
 
         // Filtering out modified files, deleted files, untracked files.
         List<String> currentFiles = plainFilenamesIn(CWD);
@@ -362,7 +373,7 @@ public class Repository {
                     continue;
                 }
                 // Judge whether is modified.
-                Blob cwdBlob = new Blob(fileName, readContents(join(CWD, fileName)));
+                Blob cwdBlob = new Blob(fileName, join(CWD, fileName));
                 String cwdBlobHash = sha1Hash(cwdBlob);
                 if (addMap.containsKey(fileName) && cwdBlobHash.equals(addMap.get(fileName)) ||
                         !addMap.containsKey(fileName) && cwdBlobHash.equals(currentCommit.blobs.get(fileName))) {
@@ -376,12 +387,132 @@ public class Repository {
         deleted.addAll(commitedFiles);
 
         System.out.println("=== Modifications Not Staged For Commit ===");
-
-        for (String fileName : nameList) {
-            System.out.println(fileName);
+        for (String fileName : deleted) {
+            System.out.println(fileName + " (deleted)");
+        }
+        for (String fileName : modified) {
+            System.out.println(fileName + " (modified)");
         }
         System.out.println();
 
+        printStatusFiles("=== Untracked Files ===", untracked);
+    }
+
+    private static void checkout(String commitHash, String fileName) {
+        if (!commits.containsKey(commitHash)) {
+            exitWithError("No commit with that id exists.");
+        }
+
+        Commit checkCommit = commits.get(commitHash);
+
+        if (!checkCommit.blobs.containsKey(fileName)) {
+            exitWithError("File does not exist in that commit.");
+        }
+
+        // Read the checked blob file.
+        Blob checkBlob = readObject(join(BLOBS_DIR, checkCommit.blobs.get(fileName)), Blob.class);
+        // Write the checked blob contents to the CWD.
+        checkBlob.writeBlobContents(CWD);
+        // Clear the fileName in the addMap or the rmSet(if exists).
+        addMap.remove(fileName);
+        rmSet.remove(fileName);
+    }
+
+    private static void checkoutBranch(String branchName) {
+        if (!branches.containsKey(branchName)) {
+            exitWithError("No such branch exists.");
+        }
+
+        if (branchName.equals(currentBranch)) {
+            exitWithError("No need to checkout the current branch.");
+        }
+
+        String checkoutCommitHash = branches.get(branchName);
+        Commit checkoutCommit = commits.get(checkoutCommitHash);
+
+        // Judge whether CWD contains(probably when change branch) untracked files.
+        List<String> currentFiles = plainFilenamesIn(CWD);
+        if (currentFiles != null) {
+            for (String fileName : currentFiles) {
+                Blob cwdBlob = new Blob(fileName, join(CWD, fileName));
+                String cwdBlobHash = sha1Hash(cwdBlob);
+                if (!cwdBlobHash.equals(currentCommit.blobs.get(fileName)) &&
+                        !cwdBlobHash.equals(checkoutCommit.blobs.get(fileName))) {
+                    exitWithError("There is an untracked file in the way; delete it, or add and commit it first.");
+                }
+            }
+        }
+        // Dump checkout commit files to the CWD(overwrite or create new).
+        if (!currentCommitHash.equals(checkoutCommitHash)) {
+            for (String checkFileName : checkoutCommit.blobs.keySet()) {
+                checkout(checkoutCommitHash, checkFileName);
+            }
+        }
+
+        // Change the head.
+        currentBranch = branchName;
+        currentCommitHash = checkoutCommitHash;
+
+        // Clear staging areas.
+        addMap.clear();
+        rmSet.clear();
+    }
+
+    public static void gitletCheckout(String[] args) {
+        if (!GITLET_DIR.exists()) {
+            exitWithError("Not in an initialized Gitlet directory.");
+        }
+
+        loadRefs();
+
+        if (args.length == 1) {
+            // Checkout branch.
+            checkoutBranch(args[0]);
+        } else if (args[0].equals("--")) {
+            // Checkout current commit file.
+            checkout(currentCommitHash, args[1]);
+        } else {
+            // Checkout given commit file.
+            checkout(args[0], args[2]);
+        }
+
+        saveRefs();
+    }
+
+    public static void gitletBranch(String branchName) {
+        if (!GITLET_DIR.exists()) {
+            exitWithError("Not in an initialized Gitlet directory.");
+        }
+
+        loadRefs();
+
+        if (branches.containsKey(branchName)) {
+            exitWithError("A branch with that name already exists.");
+        }
+
+        branches.put(branchName, currentCommitHash);
+
+        saveRefs();
+    }
+
+    public static void gitletRmBranch(String branchName) {
+        if (!GITLET_DIR.exists()) {
+            exitWithError("Not in an initialized Gitlet directory.");
+        }
+
+        loadRefs();
+
+        if (!branches.containsKey(branchName)) {
+            exitWithError("A branch with that name does not exist.");
+        }
+
+        if (branchName.equals(currentBranch)) {
+            exitWithError("Cannot remove the current branch.");
+        }
+
+        branches.remove(branchName);
+
+        saveRefs();
     }
 
     

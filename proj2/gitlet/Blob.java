@@ -7,11 +7,11 @@ import static gitlet.Utils.*;
 
 public class Blob implements Serializable {
     public final String fileName;
-    public final byte[] content;
+    public final String contents;
 
-    public Blob(String fileName, byte[] content) {
+    public Blob(String fileName, File file) {
         this.fileName = fileName;
-        this.content = content;
+        this.contents = readContentsAsString(file);
     }
 
     /** Save this blob object(if not exists) to the given savePath, and return the blob hash. */
@@ -29,5 +29,18 @@ public class Blob implements Serializable {
         }
 
         return ref;
+    }
+
+    /** Write this blob contents(if already exists, overwrite) to the given savePath. */
+    public void writeBlobContents(File savePath) {
+        File saveFile = join(savePath, fileName);
+        if (!saveFile.exists()) {
+            try {
+                saveFile.createNewFile();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        writeContents(saveFile, contents);
     }
 }

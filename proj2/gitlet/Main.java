@@ -2,6 +2,8 @@ package gitlet;
 
 
 
+import java.util.Arrays;
+
 import static gitlet.Repository.*;
 import static gitlet.Utils.*;
 
@@ -52,6 +54,21 @@ public class Main {
             case "status":
                 validateNumArgs(args, 1);
                 gitletStatus();
+                break;
+            case "checkout":
+                if (args.length > 4 || args.length == 1 ||
+                        args.length > 2 && !args[args.length - 2].equals("--")) {
+                    exitWithError("Incorrect operands.");
+                }
+                gitletCheckout(Arrays.copyOfRange(args, 1, args.length));
+                break;
+            case "branch":
+                validateNumArgs(args, 2);
+                gitletBranch(args[1]);
+                break;
+            case "rm-branch":
+                validateNumArgs(args, 2);
+                gitletRmBranch(args[1]);
                 break;
             default:
                 exitWithError("No command with that name exists.");
