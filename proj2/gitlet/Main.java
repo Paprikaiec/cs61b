@@ -70,6 +70,14 @@ public class Main {
                 validateNumArgs(args, 2);
                 gitletRmBranch(args[1]);
                 break;
+            case "reset":
+                validateNumArgs(args, 2);
+                gitletReset(args[1]);
+                break;
+            case "merge":
+                validateNumArgs(args, 2);
+                gitletMerge(args[1]);
+                break;
             default:
                 exitWithError("No command with that name exists.");
         }

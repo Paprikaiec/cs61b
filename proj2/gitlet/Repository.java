@@ -31,10 +31,9 @@ public class Repository {
     /** The commits file. */
     public static final File COMMITS_FILE = join(GITLET_DIR, "commits");
     /** The current head pointer file(store branch name). */
-    public static final File CURRENTBRANCH_FILE = join(GITLET_DIR, "currentBranch");
+    public static final File HEAD_FILE = join(GITLET_DIR, "head");
     /** The branches file(store hash map for branch pointer name and reference). */
     public static final File BRANCHES_FILE = join(GITLET_DIR, "branches");
-    public static final File CURRENTCOMMITHASH_FILE = join(GITLET_DIR, "CurrentCommitHash");
     /** The blobs directory. */
     public static final File BLOBS_DIR = join(GITLET_DIR, "blobs");
     /** The staging file for addition references map(store hash map for staging blobs) */
@@ -47,7 +46,7 @@ public class Repository {
     /** The hash map of branches<branch name, commit hash>(need prepareRef() to create). */
     private static HashMap<String, String> branches;
     /** The current branch name(need prepareRef() to create). */
-    private static String currentBranch;
+    private static String head;
     /** The current commit hash(need prepareRef() to create). */
     private static String currentCommitHash;
     /** The current commit object(need prepareRef() to create). */
@@ -78,21 +77,14 @@ public class Repository {
             }
         }
 
-        if (!CURRENTBRANCH_FILE.exists()) {
+        if (!HEAD_FILE.exists()) {
             try {
-                CURRENTBRANCH_FILE.createNewFile();
+                HEAD_FILE.createNewFile();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
 
-        if (!CURRENTCOMMITHASH_FILE.exists()) {
-            try {
-                CURRENTCOMMITHASH_FILE.createNewFile();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
 
         if (!BLOBS_DIR.exists()) {
             BLOBS_DIR.mkdir();
@@ -129,12 +121,11 @@ public class Repository {
         commits.put(iniHash, iniCommit);
 
         // Set new HEAD point to the initial commit.
-        currentBranch = "master";
-        currentCommitHash = iniHash;
+        head = "master";
 
         // Set new hash map to store branches reference name.
         branches = new HashMap<>();
-        branches.put(currentBranch, currentCommitHash);
+        branches.put(head, iniHash);
 
         // Set addMap file to store file for addition.
         addMap = new HashMap<>();
@@ -149,8 +140,8 @@ public class Repository {
     private static void loadRefs() {
         commits = readObject(COMMITS_FILE, HashMap.class);
         branches = readObject(BRANCHES_FILE, HashMap.class);
-        currentBranch = readContentsAsString(CURRENTBRANCH_FILE);
-        currentCommitHash = readContentsAsString(CURRENTCOMMITHASH_FILE);
+        head = readContentsAsString(HEAD_FILE);
+        currentCommitHash = branches.get(head);
         currentCommit = commits.get(currentCommitHash);
         addMap = readObject(ADDMAP_FILE, HashMap.class);
         rmSet = readObject(RMSET_FILE, HashSet.class);
@@ -160,8 +151,7 @@ public class Repository {
     private static void saveRefs() {
         writeObject(COMMITS_FILE, commits);
         writeObject(BRANCHES_FILE, branches);
-        writeContents(CURRENTBRANCH_FILE, currentBranch);
-        writeContents(CURRENTCOMMITHASH_FILE, currentCommitHash);
+        writeContents(HEAD_FILE, head);
         writeObject(ADDMAP_FILE, addMap);
         writeObject(RMSET_FILE, rmSet);
     }
@@ -198,6 +188,25 @@ public class Repository {
         saveRefs();
     }
 
+    private static void commit (String message, String secondParent) {
+        // Update commits.
+        HashMap<String, String> blobs = currentCommit.blobs;
+        for (String key : rmSet) {
+            blobs.remove(key);
+        }
+        blobs.putAll(addMap);
+
+        Commit commit = new Commit(new Date(), message, blobs, currentCommitHash, secondParent);
+        String commitHash = sha1Hash(commit);
+        commits.put(commitHash, commit);
+
+        // Update branches.
+        branches.put(head, commitHash);
+
+        // Update addMap and rmSet(clear).
+        addMap.clear();
+        rmSet.clear();
+    }
     public static void gitletCommit(String message) {
         if (!GITLET_DIR.exists()) {
             exitWithError("Not in an initialized Gitlet directory.");
@@ -212,24 +221,7 @@ public class Repository {
             exitWithError("No changes added to the commit.");
         }
 
-        // Update commits.
-        HashMap<String, String> blobs = currentCommit.blobs;
-        for (String key : rmSet) {
-            blobs.remove(key);
-        }
-        blobs.putAll(addMap);
-
-        Commit commit = new Commit(new Date(), message, blobs, currentCommitHash, null);
-        String commitHash = sha1Hash(commit);
-        commits.put(commitHash, commit);
-
-        // Update branches and commit hash.
-        branches.put(currentBranch, commitHash);
-        currentCommitHash = commitHash;
-
-        // Update addMap and rmSet(clear).
-        addMap.clear();
-        rmSet.clear();
+       commit(message, null);
 
         // Store changes.
         saveRefs();
@@ -306,7 +298,7 @@ public class Repository {
 
         loadRefs();
 
-        Boolean fd = false;
+        boolean fd = false;
 
         for (String cmtHash : commits.keySet()) {
             if (message.equals(commits.get(cmtHash).message)) {
@@ -339,7 +331,7 @@ public class Repository {
         System.out.println("=== Branches ===");
         TreeSet<String> branchesFiles = new TreeSet<>(branches.keySet());
         for (String name : branchesFiles) {
-            if (name.equals(currentBranch)) {
+            if (name.equals(head)) {
                 System.out.println("*" + name);
             } else {
                 System.out.println(name);
@@ -423,12 +415,12 @@ public class Repository {
             exitWithError("No such branch exists.");
         }
 
-        if (branchName.equals(currentBranch)) {
-            exitWithError("No need to checkout the current branch.");
-        }
-
         String checkoutCommitHash = branches.get(branchName);
         Commit checkoutCommit = commits.get(checkoutCommitHash);
+
+        if (branchName.equals(head) && currentCommitHash.equals(checkoutCommitHash)) {
+            exitWithError("No need to checkout the current branch.");
+        }
 
         // Judge whether CWD contains(probably when change branch) untracked files.
         List<String> currentFiles = plainFilenamesIn(CWD);
@@ -450,8 +442,7 @@ public class Repository {
         }
 
         // Change the head.
-        currentBranch = branchName;
-        currentCommitHash = checkoutCommitHash;
+        head = branchName;
 
         // Clear staging areas.
         addMap.clear();
@@ -506,7 +497,7 @@ public class Repository {
             exitWithError("A branch with that name does not exist.");
         }
 
-        if (branchName.equals(currentBranch)) {
+        if (branchName.equals(head)) {
             exitWithError("Cannot remove the current branch.");
         }
 
@@ -515,5 +506,157 @@ public class Repository {
         saveRefs();
     }
 
-    
+    public static void gitletReset(String resetHash) {
+        if (!GITLET_DIR.exists()) {
+            exitWithError("Not in an initialized Gitlet directory.");
+        }
+
+        loadRefs();
+
+        if (!commits.containsKey(resetHash)) {
+            exitWithError("No commit with that id exists");
+        }
+
+        // Change the current branch hash to the reset hash.
+        branches.replace(head, resetHash);
+        checkoutBranch(head);
+
+        saveRefs();
+    }
+
+    /** Return the split point hash */
+    private static String findSplit(String branchName) {
+        HashSet<String> visited = new HashSet<>();
+        String cmt1 = currentCommitHash;
+        String cmt2 = branches.get(branchName);
+        while (true) {
+            if (visited.contains(cmt1)) {
+                return cmt1;
+            } else {
+                visited.add(cmt1);
+            }
+
+            if (visited.contains(cmt2)) {
+                return cmt2;
+            } else {
+                visited.add(cmt2);
+            }
+
+            if (commits.get(cmt1).parent != null) {
+                cmt1 = commits.get(cmt1).parent;
+            }
+
+            if (commits.get(cmt2).parent != null) {
+                cmt2 = commits.get(cmt2).parent;
+            }
+        }
+    }
+
+    private static void addressConflict(String fileName, String headFileHash, String givenFileHash) {
+        String headContents = (headFileHash == null ? null : readContentsAsString(join(BLOBS_DIR, headFileHash)));
+        String givenContents = (givenFileHash == null ? null : readContentsAsString(join(BLOBS_DIR, givenFileHash)));
+        String contents = "<<<<<<< HEAD\n" +
+                headContents +
+                "=======\n" +
+                givenContents +
+                ">>>>>>>";
+        writeContents(join(CWD, fileName), contents);
+    }
+
+    public static void gitletMerge(String branchName) {
+        if (!GITLET_DIR.exists()) {
+            exitWithError("Not in an initialized Gitlet directory.");
+        }
+
+        loadRefs();
+
+        if (!addMap.isEmpty() || !rmSet.isEmpty()) {
+            exitWithError("You have uncommitted changes.");
+        }
+        if (!branches.containsKey(branchName)) {
+            exitWithError("A branch with that name does not exist.");
+        }
+        if (head.equals(branchName)) {
+            exitWithError("Cannot merge a branch with itself.");
+        }
+
+        String splitPointHash = findSplit(branchName);
+        String givenCommitHash = branches.get(branchName);
+        if (splitPointHash.equals(givenCommitHash)) {
+            exitWithError("Given branch is an ancestor of the current branch.");
+        }
+        if (splitPointHash.equals(currentCommitHash)) {
+            checkoutBranch(branchName);
+            exitWithError("Current branch fast-forwarded.");
+        }
+
+        // Get split point, current commit, given commit blobs hash map.
+        HashMap<String, String> splitBlobs = commits.get(splitPointHash).blobs;
+        HashMap<String, String> headBlobs = currentCommit.blobs;
+        HashMap<String, String> givenBlobs = commits.get(givenCommitHash).blobs;
+
+        // Judge whether there is untracked would be modified files.
+        List<String> cwdFiles = plainFilenamesIn(CWD);
+        if (cwdFiles != null) {
+            for (String fileName : cwdFiles) {
+                Blob cwdBlob = new Blob(fileName, join(CWD, fileName));
+                String cwdBlobHash = sha1Hash(cwdBlob);
+                if (!headBlobs.containsKey(fileName) && givenBlobs.containsKey(fileName) &&
+                        (!givenBlobs.get(fileName).equals(splitBlobs.get(fileName)) ||
+                                !splitBlobs.containsKey(fileName) && !cwdBlobHash.equals(givenBlobs.get(fileName)))) {
+                    exitWithError("There is an untracked file in the way; delete it, or add and commit it first.");
+                }
+            }
+        }
+
+        // Filter out file for addition or removal.
+        for (String fileName : splitBlobs.keySet()) {
+            if (splitBlobs.get(fileName).equals(headBlobs.get(fileName))) {
+                if (!givenBlobs.containsKey(fileName)) {
+                    rmSet.add(fileName);
+                } else if (!splitBlobs.get(fileName).equals(givenBlobs.get(fileName))) {
+                    addMap.put(fileName, givenBlobs.get(fileName));
+                }
+            }
+        }
+
+        // Filter out file for checkout.
+        for (String fileName : givenBlobs.keySet()) {
+            if (!splitBlobs.containsKey(fileName) && !headBlobs.containsKey(fileName)) {
+                checkout(givenCommitHash, fileName);
+                addMap.put(fileName, givenBlobs.get(fileName));
+            }
+        }
+
+        // Filter out file for conflict.
+        boolean conflict = false;
+        for (String fileName : headBlobs.keySet()) {
+            String headFileHash = headBlobs.get(fileName);
+            if (givenBlobs.containsKey(fileName) && !headFileHash.equals(givenBlobs.get(fileName))) {
+                addressConflict(fileName, headFileHash, givenBlobs.get(fileName));
+                conflict = true;
+            }
+        }
+
+        for (String fileName : splitBlobs.keySet()) {
+            String splitFileHash = splitBlobs.get(fileName);
+            String headFileHash = headBlobs.get(fileName);
+            String givenFileHash = givenBlobs.get(fileName);
+
+            if (headFileHash == null && givenFileHash != null && !splitFileHash.equals(givenFileHash) ||
+                    headFileHash != null && givenFileHash == null && !splitFileHash.equals(headFileHash)) {
+                addressConflict(fileName, headFileHash, givenFileHash);
+                conflict = true;
+            }
+        }
+
+        // Generate merge commit.
+        commit(String.format("Merged %s into %s.", branchName, head), givenCommitHash);
+        // Judge whether there is conflict.
+        if (conflict) {
+            System.out.println("Encountered a merge conflict.");
+        }
+
+        saveRefs();
+    }
 }
