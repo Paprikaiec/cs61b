@@ -188,9 +188,9 @@ public class Repository {
         saveRefs();
     }
 
-    private static void commit (String message, String secondParent) {
+    private static void commit(String message, String secondParent) {
         // Update commits.
-        HashMap<String, String> blobs = currentCommit.blobs;
+        HashMap<String, String> blobs = new HashMap<>(currentCommit.blobs);
         for (String key : rmSet) {
             blobs.remove(key);
         }
@@ -221,7 +221,7 @@ public class Repository {
             exitWithError("No changes added to the commit.");
         }
 
-       commit(message, null);
+        commit(message, null);
 
         // Store changes.
         saveRefs();
@@ -269,6 +269,7 @@ public class Repository {
 
         loadRefs();
 
+        // TODO: Change the cmt to new.
         Commit cmt = currentCommit;
         String cmtHash = currentCommitHash;
         printCommit(cmtHash, cmt);
@@ -367,8 +368,8 @@ public class Repository {
                 // Judge whether is modified.
                 Blob cwdBlob = new Blob(fileName, join(CWD, fileName));
                 String cwdBlobHash = sha1Hash(cwdBlob);
-                if (addMap.containsKey(fileName) && cwdBlobHash.equals(addMap.get(fileName)) ||
-                        !addMap.containsKey(fileName) && cwdBlobHash.equals(currentCommit.blobs.get(fileName))) {
+                if (addMap.containsKey(fileName) && !cwdBlobHash.equals(addMap.get(fileName)) ||
+                        !addMap.containsKey(fileName) && !cwdBlobHash.equals(currentCommit.blobs.get(fileName))) {
                     modified.add(fileName);
                 }
             }

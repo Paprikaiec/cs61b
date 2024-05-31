@@ -5,7 +5,7 @@ import java.io.Serializable;
 import java.io.File;
 import static gitlet.Utils.*;
 
-public class Blob implements Serializable {
+public class Blob implements Serializable, Dumpable {
     public final String fileName;
     public final String contents;
 
@@ -42,5 +42,12 @@ public class Blob implements Serializable {
             }
         }
         writeContents(saveFile, contents);
+    }
+
+    /** Use for debug.*/
+    @Override
+    public void dump() {
+        System.out.printf("File Name: %s%n", fileName);
+        System.out.printf("contents: %s%n", contents);
     }
 }
