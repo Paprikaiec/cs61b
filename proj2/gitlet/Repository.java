@@ -3,26 +3,12 @@ package gitlet;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-//import java.util.Collections;
 
-// TODO: any imports you need here
 import static gitlet.Utils.*;
 import java.text.SimpleDateFormat;
 
-/** Represents a gitlet repository.
- *  TODO: It's a good idea to give a description here of what else this Class
- *  does at a high level.
- *
- *  @author wyw
- */
+/** @author wyw */
 public class Repository {
-    /**
-     * TODO: add instance variables here.
-     *
-     * List all instance variables of the Repository class here with a useful
-     * comment above them describing what that variable represents and how that
-     * variable is used. We've provided two examples for you.
-     */
 
     /** The current working directory. */
     public static final File CWD = new File(System.getProperty("user.dir"));
@@ -30,6 +16,9 @@ public class Repository {
     public static final File GITLET_DIR = join(CWD, ".gitlet");
     /** The commits file. */
     public static final File COMMITS_FILE = join(GITLET_DIR, "commits");
+    /** The short id file. */
+    public static final File SHORTIDS_FILE = join(GITLET_DIR, "shortIds");
+    public static final int SHORTIDLENGTH = 6;
     /** The current head pointer file(store branch name). */
     public static final File HEAD_FILE = join(GITLET_DIR, "head");
     /** The branches file(store hash map for branch pointer name and reference). */
@@ -43,6 +32,8 @@ public class Repository {
 
     /** The hash map of commits<commit hash, commit>(need prepareRef() to create). */
     private static HashMap<String, Commit> commits;
+    /** The hash map of the short ids<6-digit hash, commit sha1 hash>(need prepareRef() to create). */
+    private static HashMap<String, String> shortIds;
     /** The hash map of branches<branch name, commit hash>(need prepareRef() to create). */
     private static HashMap<String, String> branches;
     /** The current branch name(need prepareRef() to create). */
@@ -55,7 +46,6 @@ public class Repository {
     private static HashMap<String, String> addMap;
     /** The hash set of Staging file name for removal. */
     private static HashSet<String> rmSet;
-    /* TODO: fill in the rest of this class. */
     private static void setupPersistence() {
         if (!GITLET_DIR.exists()) {
             GITLET_DIR.mkdir();
@@ -64,6 +54,14 @@ public class Repository {
         if (!COMMITS_FILE.exists()) {
             try {
                 COMMITS_FILE.createNewFile();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        if (!SHORTIDS_FILE.exists()) {
+            try {
+                SHORTIDS_FILE.createNewFile();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -116,9 +114,14 @@ public class Repository {
 
         // Set new hash map to store commits.
         commits = new HashMap<>();
-        Commit iniCommit = new Commit(new Date(0), "initial commit", new HashMap<>(), null, null);
+        Commit iniCommit = new Commit(new Date(0), "initial commit", new HashMap<>(),
+                null, null);
         String iniHash = sha1Hash(iniCommit);
         commits.put(iniHash, iniCommit);
+
+        // Set short ids hash map.
+        shortIds = new HashMap<>();
+        shortIds.put(iniHash.substring(0, SHORTIDLENGTH - 1), iniHash);
 
         // Set new HEAD point to the initial commit.
         head = "master";
@@ -139,6 +142,7 @@ public class Repository {
     /** Read references from the corresponding files. */
     private static void loadRefs() {
         commits = readObject(COMMITS_FILE, HashMap.class);
+        shortIds = readObject(SHORTIDS_FILE, HashMap.class);
         branches = readObject(BRANCHES_FILE, HashMap.class);
         head = readContentsAsString(HEAD_FILE);
         currentCommitHash = branches.get(head);
@@ -150,6 +154,7 @@ public class Repository {
 
     private static void saveRefs() {
         writeObject(COMMITS_FILE, commits);
+        writeObject(SHORTIDS_FILE, shortIds);
         writeObject(BRANCHES_FILE, branches);
         writeContents(HEAD_FILE, head);
         writeObject(ADDMAP_FILE, addMap);
@@ -162,7 +167,7 @@ public class Repository {
         }
 
         // Judge whether the fileName file exist.
-        if (!dirContainsFile(CWD,fileName)) {
+        if (!dirContainsFile(CWD, fileName)) {
             exitWithError("File does not exist.");
         }
 
@@ -199,6 +204,7 @@ public class Repository {
         Commit commit = new Commit(new Date(), message, blobs, currentCommitHash, secondParent);
         String commitHash = sha1Hash(commit);
         commits.put(commitHash, commit);
+        shortIds.put(commitHash.substring(0, SHORTIDLENGTH - 1), commitHash);
 
         // Update branches.
         branches.put(head, commitHash);
@@ -269,7 +275,6 @@ public class Repository {
 
         loadRefs();
 
-        // TODO: Change the cmt to new.
         Commit cmt = currentCommit;
         String cmtHash = currentCommitHash;
         printCommit(cmtHash, cmt);
@@ -314,9 +319,9 @@ public class Repository {
 
     }
 
-    private static void printStatusFiles(String title, TreeSet<String> Files) {
+    private static void printStatusFiles(String title, TreeSet<String> files) {
         System.out.println(title);
-        for (String fileName : Files) {
+        for (String fileName : files) {
             System.out.println(fileName);
         }
         System.out.println();
@@ -351,7 +356,7 @@ public class Repository {
         TreeSet<String> commitedFiles = new TreeSet<>(currentCommit.blobs.keySet());
 
         TreeSet<String> modified = new TreeSet<>();
-        TreeSet<String > deleted = new TreeSet<>();
+        TreeSet<String> deleted = new TreeSet<>();
         TreeSet<String> untracked = new TreeSet<>();
         
         if (currentFiles != null) {
@@ -360,16 +365,16 @@ public class Repository {
                 commitedFiles.remove(fileName);
                 addFiles.remove(fileName);
                 // Judge whether is untracked.
-                if (rmSet.contains(fileName) ||
-                        !currentCommit.blobs.containsKey(fileName) && !addMap.containsKey(fileName)) {
+                if (rmSet.contains(fileName)
+                        || !currentCommit.blobs.containsKey(fileName) && !addMap.containsKey(fileName)) {
                     untracked.add(fileName);
                     continue;
                 }
                 // Judge whether is modified.
                 Blob cwdBlob = new Blob(fileName, join(CWD, fileName));
                 String cwdBlobHash = sha1Hash(cwdBlob);
-                if (addMap.containsKey(fileName) && !cwdBlobHash.equals(addMap.get(fileName)) ||
-                        !addMap.containsKey(fileName) && !cwdBlobHash.equals(currentCommit.blobs.get(fileName))) {
+                if (addMap.containsKey(fileName) && !cwdBlobHash.equals(addMap.get(fileName))
+                        || !addMap.containsKey(fileName) && !cwdBlobHash.equals(currentCommit.blobs.get(fileName))) {
                     modified.add(fileName);
                 }
             }
@@ -392,7 +397,7 @@ public class Repository {
     }
 
     private static void checkout(String commitHash, String fileName) {
-        if (!commits.containsKey(commitHash)) {
+        if (commitHash == null || !commits.containsKey(commitHash)) {
             exitWithError("No commit with that id exists.");
         }
 
@@ -435,8 +440,11 @@ public class Repository {
                 }
             }
         }
-        // Dump checkout commit files to the CWD(overwrite or create new).
+        // Delete CWD file and dump checkout commit files to the CWD(overwrite or create new).
         if (!currentCommitHash.equals(checkoutCommitHash)) {
+            for (String fileName : currentFiles) {
+                restrictedDelete(join(CWD, fileName));
+            }
             for (String checkFileName : checkoutCommit.blobs.keySet()) {
                 checkout(checkoutCommitHash, checkFileName);
             }
@@ -465,7 +473,12 @@ public class Repository {
             checkout(currentCommitHash, args[1]);
         } else {
             // Checkout given commit file.
-            checkout(args[0], args[2]);
+            if (args[0].length() == SHORTIDLENGTH ) {
+                checkout(shortIds.get(args[0]), args[2]);
+            } else {
+                checkout(args[0], args[2]);
+            }
+
         }
 
         saveRefs();

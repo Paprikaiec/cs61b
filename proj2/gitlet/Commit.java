@@ -9,20 +9,9 @@ import java.text.SimpleDateFormat;
 import static gitlet.Utils.*;
 
 /** Represents a gitlet commit object.
- *  TODO: It's a good idea to give a description here of what else this Class
- *  does at a high level.
- *
- *  @author TODO
+ *  @author wyw
  */
 public class Commit implements Serializable {
-    /**
-     * TODO: add instance variables here.
-     *
-     * List all instance variables of the Commit class here with a useful
-     * comment above them describing what that variable represents and how that
-     * variable is used. We've provided one example for `message`.
-     */
-
     /** The date of this Commit. */
     public final Date timestamp;
     /** The message of this Commit. */
@@ -34,9 +23,8 @@ public class Commit implements Serializable {
     /** The second parent(for merge) reference of this Commit. */
     public final String secondParent;
 
-    /* TODO: fill in the rest of this class. */
-
-    public Commit(Date timestamp, String message, HashMap<String, String> blobs, String parent, String secondParent) {
+    public Commit(Date timestamp, String message, HashMap<String, String> blobs,
+                  String parent, String secondParent) {
         this.timestamp = timestamp;
         this.message = message;
         this.blobs = blobs;
