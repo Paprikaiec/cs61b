@@ -18,7 +18,7 @@ public class Repository {
     public static final File COMMITS_FILE = join(GITLET_DIR, "commits");
     /** The short id file. */
     public static final File SHORTIDS_FILE = join(GITLET_DIR, "shortIds");
-    public static final int SHORTIDLENGTH = 6;
+    public static final int SHORTIDLENGTH = 8;
     /** The current head pointer file(store branch name). */
     public static final File HEAD_FILE = join(GITLET_DIR, "head");
     /** The branches file(store hash map for branch pointer name and reference). */
@@ -161,18 +161,7 @@ public class Repository {
         writeObject(RMSET_FILE, rmSet);
     }
 
-    public static void gitletAdd(String fileName) {
-        if (!GITLET_DIR.exists()) {
-            exitWithError("Not in an initialized Gitlet directory.");
-        }
-
-        // Judge whether the fileName file exist.
-        if (!dirContainsFile(CWD, fileName)) {
-            exitWithError("File does not exist.");
-        }
-
-        loadRefs();
-
+    private static void addCWDFile (String fileName) {
         // If the file name already exists in the rmSet, cancel the removal.
         rmSet.remove(fileName);
         // If the blobs area already exists the staged same name file, delete to overwrite.
@@ -189,6 +178,21 @@ public class Repository {
         if (stagingRef.equals(currentCommit.blobs.get(fileName))) {
             addMap.remove(fileName);
         }
+    }
+
+    public static void gitletAdd(String fileName) {
+        if (!GITLET_DIR.exists()) {
+            exitWithError("Not in an initialized Gitlet directory.");
+        }
+
+        // Judge whether the fileName file exist.
+        if (!dirContainsFile(CWD, fileName)) {
+            exitWithError("File does not exist.");
+        }
+
+        loadRefs();
+
+        addCWDFile(fileName);
 
         saveRefs();
     }
@@ -566,15 +570,19 @@ public class Repository {
         }
     }
 
-    private static void addressConflict(String fileName, String headFileHash, String givenFileHash) {
-        String headContents = (headFileHash == null ? null : readContentsAsString(join(BLOBS_DIR, headFileHash)));
-        String givenContents = (givenFileHash == null ? null : readContentsAsString(join(BLOBS_DIR, givenFileHash)));
+    private static void addressConflict(String fileName, String headBlobHash, String givenBlobHash) {
+
+        String headContents = (headBlobHash == null ?
+                null : readObject(join(BLOBS_DIR, headBlobHash), Blob.class).contents);
+        String givenContents = (givenBlobHash == null ?
+                null : readObject(join(BLOBS_DIR, givenBlobHash),Blob.class).contents);
         String contents = "<<<<<<< HEAD\n" +
                 headContents +
                 "=======\n" +
                 givenContents +
                 ">>>>>>>";
         writeContents(join(CWD, fileName), contents);
+        addCWDFile(fileName);
     }
 
     public static void gitletMerge(String branchName) {
@@ -637,7 +645,6 @@ public class Repository {
         // Filter out file for checkout.
         for (String fileName : givenBlobs.keySet()) {
             if (!splitBlobs.containsKey(fileName) && !headBlobs.containsKey(fileName)) {
-                checkout(givenCommitHash, fileName);
                 addMap.put(fileName, givenBlobs.get(fileName));
             }
         }
@@ -653,19 +660,20 @@ public class Repository {
         }
 
         for (String fileName : splitBlobs.keySet()) {
-            String splitFileHash = splitBlobs.get(fileName);
-            String headFileHash = headBlobs.get(fileName);
-            String givenFileHash = givenBlobs.get(fileName);
+            String splitBlobHash = splitBlobs.get(fileName);
+            String headBlobHash = headBlobs.get(fileName);
+            String givenBlobHash = givenBlobs.get(fileName);
 
-            if (headFileHash == null && givenFileHash != null && !splitFileHash.equals(givenFileHash) ||
-                    headFileHash != null && givenFileHash == null && !splitFileHash.equals(headFileHash)) {
-                addressConflict(fileName, headFileHash, givenFileHash);
+            if (headBlobHash == null && givenBlobHash != null && !splitBlobHash.equals(givenBlobHash)
+                    || headBlobHash != null && givenBlobHash == null && !splitBlobHash.equals(headBlobHash)) {
+                addressConflict(fileName, headBlobHash, givenBlobHash);
                 conflict = true;
             }
         }
 
-        // Generate merge commit.
+        // Generate merge commit and checkout corresponding files.
         commit(String.format("Merged %s into %s.", branchName, head), givenCommitHash);
+        checkoutBranch(head);
         // Judge whether there is conflict.
         if (conflict) {
             System.out.println("Encountered a merge conflict.");
