@@ -442,8 +442,7 @@ public class Repository {
                 Blob cwdBlob = new Blob(fileName, join(CWD, fileName));
                 String cwdHash = sha1Hash(cwdBlob);
                 cwdFiles.put(fileName, cwdHash);
-                if (checkoutFiles.containsKey(fileName) && headFiles.containsKey(fileName)
-                        && !cwdHash.equals(checkoutFiles.get(fileName)) && !cwdHash.equals(headFiles.get(fileName))) {
+                if (!cwdHash.equals(headFiles.get(fileName)) && !cwdHash.equals(checkoutFiles.get(fileName))) {
                     exitWithError("There is an untracked file in the way; delete it, or add and commit it first.");
                 }
             }
@@ -587,9 +586,9 @@ public class Repository {
     private static void addressConflict(String fileName, String headBlobHash, String givenBlobHash) {
 
         String headContents = (headBlobHash == null ?
-                null : readObject(join(BLOBS_DIR, headBlobHash), Blob.class).contents);
+                "" : readObject(join(BLOBS_DIR, headBlobHash), Blob.class).contents);
         String givenContents = (givenBlobHash == null ?
-                null : readObject(join(BLOBS_DIR, givenBlobHash),Blob.class).contents);
+                "" : readObject(join(BLOBS_DIR, givenBlobHash),Blob.class).contents);
         String contents = "<<<<<<< HEAD\n" +
                 headContents +
                 "=======\n" +
@@ -649,6 +648,7 @@ public class Repository {
         for (String fileName : splitBlobs.keySet()) {
             if (splitBlobs.get(fileName).equals(headBlobs.get(fileName))) {
                 if (!givenBlobs.containsKey(fileName)) {
+                    restrictedDelete(join(CWD,fileName));
                     rmSet.add(fileName);
                 } else if (!splitBlobs.get(fileName).equals(givenBlobs.get(fileName))) {
                     addMap.put(fileName, givenBlobs.get(fileName));
