@@ -121,7 +121,7 @@ public class Repository {
 
         // Set short ids hash map.
         shortIds = new HashMap<>();
-        shortIds.put(iniHash.substring(0, SHORTIDLENGTH - 1), iniHash);
+        shortIds.put(iniHash.substring(0, SHORTIDLENGTH), iniHash);
 
         // Set new HEAD point to the initial commit.
         head = "master";
@@ -208,7 +208,7 @@ public class Repository {
         Commit commit = new Commit(new Date(), message, blobs, currentCommitHash, secondParent);
         String commitHash = sha1Hash(commit);
         commits.put(commitHash, commit);
-        shortIds.put(commitHash.substring(0, SHORTIDLENGTH - 1), commitHash);
+        shortIds.put(commitHash.substring(0, SHORTIDLENGTH), commitHash);
 
         // Update branches.
         branches.put(head, commitHash);
@@ -427,30 +427,40 @@ public class Repository {
 
         String checkoutCommitHash = branches.get(branchName);
         Commit checkoutCommit = commits.get(checkoutCommitHash);
+        HashMap<String, String> checkoutFiles = checkoutCommit.blobs;
+        HashMap<String, String> headFiles = currentCommit.blobs;
+        HashMap<String, String> cwdFiles = new HashMap<>();
 
         if (branchName.equals(head) && currentCommitHash.equals(checkoutCommitHash)) {
             exitWithError("No need to checkout the current branch.");
         }
 
         // Judge whether CWD contains(probably when change branch) untracked files.
-        List<String> currentFiles = plainFilenamesIn(CWD);
-        if (currentFiles != null) {
-            for (String fileName : currentFiles) {
+        List<String> cwdFileNames = plainFilenamesIn(CWD);
+        if (cwdFileNames != null) {
+            for (String fileName : cwdFileNames) {
                 Blob cwdBlob = new Blob(fileName, join(CWD, fileName));
-                String cwdBlobHash = sha1Hash(cwdBlob);
-                if (!cwdBlobHash.equals(currentCommit.blobs.get(fileName)) &&
-                        !cwdBlobHash.equals(checkoutCommit.blobs.get(fileName))) {
+                String cwdHash = sha1Hash(cwdBlob);
+                cwdFiles.put(fileName, cwdHash);
+                if (checkoutFiles.containsKey(fileName) && headFiles.containsKey(fileName)
+                        && !cwdHash.equals(checkoutFiles.get(fileName)) && !cwdHash.equals(headFiles.get(fileName))) {
                     exitWithError("There is an untracked file in the way; delete it, or add and commit it first.");
                 }
             }
         }
-        // Delete CWD file and dump checkout commit files to the CWD(overwrite or create new).
-        if (!currentCommitHash.equals(checkoutCommitHash)) {
-            for (String fileName : currentFiles) {
+
+        // Delete tracked files.
+        for (String fileName : headFiles.keySet()) {
+            if (!checkoutFiles.containsKey(fileName)) {
                 restrictedDelete(join(CWD, fileName));
             }
-            for (String checkFileName : checkoutCommit.blobs.keySet()) {
-                checkout(checkoutCommitHash, checkFileName);
+        }
+        // Overwrite checkout files.
+        for (String fileName : checkoutFiles.keySet()) {
+            if (!cwdFiles.containsKey(fileName)
+                || !checkoutFiles.get(fileName).equals(cwdFiles.get(fileName))
+                    && cwdFiles.get(fileName).equals(headFiles.get(fileName))) {
+                checkout(checkoutCommitHash, fileName);
             }
         }
 
@@ -530,6 +540,10 @@ public class Repository {
         }
 
         loadRefs();
+        
+        if (resetHash.length() == SHORTIDLENGTH) {
+            resetHash = shortIds.get(resetHash);
+        }
 
         if (!commits.containsKey(resetHash)) {
             exitWithError("No commit with that id exists");
@@ -580,7 +594,7 @@ public class Repository {
                 headContents +
                 "=======\n" +
                 givenContents +
-                ">>>>>>>";
+                ">>>>>>>\n";
         writeContents(join(CWD, fileName), contents);
         addCWDFile(fileName);
     }
