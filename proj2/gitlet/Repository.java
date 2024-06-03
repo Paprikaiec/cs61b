@@ -429,7 +429,6 @@ public class Repository {
         Commit checkoutCommit = commits.get(checkoutCommitHash);
         HashMap<String, String> checkoutFiles = checkoutCommit.blobs;
         HashMap<String, String> headFiles = currentCommit.blobs;
-        HashMap<String, String> cwdFiles = new HashMap<>();
 
         if (branchName.equals(head) && currentCommitHash.equals(checkoutCommitHash)) {
             exitWithError("No need to checkout the current branch.");
@@ -441,8 +440,8 @@ public class Repository {
             for (String fileName : cwdFileNames) {
                 Blob cwdBlob = new Blob(fileName, join(CWD, fileName));
                 String cwdHash = sha1Hash(cwdBlob);
-                cwdFiles.put(fileName, cwdHash);
-                if (!cwdHash.equals(headFiles.get(fileName)) && !cwdHash.equals(checkoutFiles.get(fileName))) {
+                if (headFiles.containsKey(fileName)
+                        && !cwdHash.equals(headFiles.get(fileName)) && !cwdHash.equals(checkoutFiles.get(fileName))) {
                     exitWithError("There is an untracked file in the way; delete it, or add and commit it first.");
                 }
             }
@@ -454,13 +453,9 @@ public class Repository {
                 restrictedDelete(join(CWD, fileName));
             }
         }
-        // Overwrite checkout files.
+        // Dump checkout files.
         for (String fileName : checkoutFiles.keySet()) {
-            if (!cwdFiles.containsKey(fileName)
-                || !checkoutFiles.get(fileName).equals(cwdFiles.get(fileName))
-                    && cwdFiles.get(fileName).equals(headFiles.get(fileName))) {
-                checkout(checkoutCommitHash, fileName);
-            }
+            checkout(checkoutCommitHash, fileName);
         }
 
         // Change the head.
@@ -666,11 +661,19 @@ public class Repository {
         // Filter out file for conflict.
         boolean conflict = false;
         for (String fileName : headBlobs.keySet()) {
-            String headFileHash = headBlobs.get(fileName);
-            if (givenBlobs.containsKey(fileName) && !headFileHash.equals(givenBlobs.get(fileName))) {
-                addressConflict(fileName, headFileHash, givenBlobs.get(fileName));
-                conflict = true;
-            }
+            String splitBlobHash = splitBlobs.get(fileName);
+            String headBlobHash = headBlobs.get(fileName);
+            String givenBlobHash = givenBlobs.get(fileName);
+
+           if (splitBlobHash != null && givenBlobHash != null
+                   && !headBlobHash.equals(givenBlobHash)
+                   && !splitBlobHash.equals(headBlobHash)
+                   && !splitBlobHash.equals(givenBlobHash)
+                   || splitBlobHash == null && givenBlobHash != null
+                   && !headBlobHash.equals(givenBlobHash)) {
+               addressConflict(fileName, headBlobHash, givenBlobHash);
+               conflict = true;
+           }
         }
 
         for (String fileName : splitBlobs.keySet()) {
