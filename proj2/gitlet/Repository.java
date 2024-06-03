@@ -442,8 +442,12 @@ public class Repository {
             for (String fileName : cwdFileNames) {
                 Blob cwdBlob = new Blob(fileName, join(CWD, fileName));
                 String cwdHash = sha1Hash(cwdBlob);
-                if (headFiles.containsKey(fileName)
-                        && !cwdHash.equals(headFiles.get(fileName)) && !cwdHash.equals(checkoutFiles.get(fileName))) {
+                if (checkoutFiles.containsKey(fileName)
+                        && !checkoutFiles.get(fileName).equals(cwdHash)
+                        && !cwdHash.equals(headFiles.get(fileName))
+                        || !checkoutFiles.containsKey(fileName)
+                        && headFiles.containsKey(fileName)
+                        && !cwdHash.equals(headFiles.get(fileName))) {
                     exitWithError("There is an untracked file in the way; delete it, or add and commit it first.");
                 }
             }
@@ -542,7 +546,7 @@ public class Repository {
         }
 
         if (!commits.containsKey(resetHash)) {
-            exitWithError("No commit with that id exists");
+            exitWithError("No commit with that id exists.");
         }
 
         // Change the current branch hash to the reset hash.
