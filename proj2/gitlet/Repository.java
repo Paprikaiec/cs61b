@@ -6,6 +6,8 @@ import java.util.*;
 
 import static gitlet.Utils.*;
 import java.text.SimpleDateFormat;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /** @author wyw */
 public class Repository {
@@ -555,6 +557,8 @@ public class Repository {
         HashSet<String> visited = new HashSet<>();
         String cmt1 = currentCommitHash;
         String cmt2 = branches.get(branchName);
+        ConcurrentLinkedQueue<String> que1 = new ConcurrentLinkedQueue<>();
+        ConcurrentLinkedQueue<String> que2 = new ConcurrentLinkedQueue<>();
         while (true) {
             if (visited.contains(cmt1)) {
                 return cmt1;
@@ -567,13 +571,29 @@ public class Repository {
             } else {
                 visited.add(cmt2);
             }
+            Commit commit1 = commits.get(cmt1);
+            Commit commit2 = commits.get(cmt2);
 
-            if (commits.get(cmt1).parent != null) {
-                cmt1 = commits.get(cmt1).parent;
+            if (commit1.secondParent != null) {
+                que1.add(commit1.parent);
+                que1.add(commit1.secondParent);
+            } else if (commit1.parent != null) {
+                que1.add(commit1.parent);
             }
 
-            if (commits.get(cmt2).parent != null) {
-                cmt2 = commits.get(cmt2).parent;
+            if (commit2.secondParent != null) {
+                que2.add(commit2.parent);
+                que2.add(commit2.secondParent);
+            } else if (commit2.parent != null) {
+                que2.add(commit2.parent);
+            }
+
+            if (!que1.isEmpty()) {
+                cmt1 = que1.poll();
+            }
+
+            if (!que2.isEmpty()) {
+                cmt2 = que2.poll();
             }
         }
     }
